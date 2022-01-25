@@ -113,20 +113,7 @@ public class PCodeDump extends GhidraScript {
 
 				func = getFunctionAfter(func);
 			}
-
-			// func = this.getFunctionContaining(this.currentAddress);
-			// if (func == null) {
-			// 	Msg.showWarn(this, state.getTool().getToolFrame(), "GraphAST Error", "No Function at current location");
-			// 	return;
-			// }
-
-
-
-
-
-
-// at this point, we want to go trough high to print its contents.
-
+			
 			file.close();
 		} catch (IOException e) {
 			e.printStackTrace();
