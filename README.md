@@ -7,5 +7,4 @@ Place the script file in Ghidra's user script folder. Open a binary, then run th
 
 # Features to be added in the future
 
-- Printing registers using their name instead of internal P-Code numbers
 - Dumping data
