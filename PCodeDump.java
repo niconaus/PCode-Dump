@@ -8,6 +8,8 @@ import java.io.IOException;
 import ghidra.util.Msg;
 import java.util.ArrayList;
 import ghidra.program.model.address.*;
+import ghidra.program.model.pcode.*;
+import ghidra.program.model.lang.Register;
 
 //old imports
 import java.io.FileNotFoundException;
@@ -39,22 +41,6 @@ import ghidra.program.model.data.Structure;
 import ghidra.program.model.data.TypeDef;
 import ghidra.program.model.data.Union;
 import ghidra.program.model.listing.Function;
-import ghidra.program.model.pcode.FunctionPrototype;
-import ghidra.program.model.pcode.HighConstant;
-import ghidra.program.model.pcode.HighFunction;
-import ghidra.program.model.pcode.HighGlobal;
-import ghidra.program.model.pcode.HighLocal;
-import ghidra.program.model.pcode.HighOther;
-import ghidra.program.model.pcode.HighParam;
-import ghidra.program.model.pcode.HighSymbol;
-import ghidra.program.model.pcode.HighVariable;
-import ghidra.program.model.pcode.PcodeBlock;
-import ghidra.program.model.pcode.PcodeBlockBasic;
-import ghidra.program.model.pcode.PcodeOp;
-import ghidra.program.model.pcode.PcodeOpAST;
-import ghidra.program.model.pcode.SequenceNumber;
-import ghidra.program.model.pcode.Varnode;
-import ghidra.program.model.pcode.VarnodeAST;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.program.model.symbol.SymbolIterator;
 import ghidra.program.model.symbol.SymbolTable;
@@ -107,17 +93,63 @@ public class PCodeDump extends GhidraScript {
 
 					while(block.hasNext()){
 						PcodeOp op = block.next();
-						file.write(op.toString() + "\n");
+
+						// Printing instruction
+						// Determine if it is an assignment
+						if (op.isAssignment()){
+								// if so, print output varnode
+								file.write(printVarnode(op.getOutput()));
+						}
+						else {
+							// if not, print " --- "
+							file.write(" --- ");
+						}
+
+						// Then, print opcode
+						int opcode = op.getOpcode();
+						file.write(" " + op.getMnemonic() + " ");
+
+						// Then, print all inputs, if any
+						Varnode[] inputs = op.getInputs();
+						// begin loop
+						for (int j = 0; j < inputs.length; j++) {
+							// print varnode
+  						file.write(printVarnode(op.getInput(j)));
+							// if next, print " , "
+							if (inputs.length > (j+1)) {file.write(" , ");}
+						}
+
+						file.write("\n");
+
+						// Done!
 					}
 				}
 
 				func = getFunctionAfter(func);
 			}
-			
+
 			file.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	protected String printVarnode(Varnode vn) {
+		String result = "";
+
+		if(vn.isRegister()){
+			result += "(register, ";
+			Register reg = func.getProgram().getRegister(vn.getAddress(), vn.getSize());
+			 	if (reg != null) { // do we need this condition?
+			 			result += reg.getName();
+						result += ", ";
+						result += vn.getSize();
+						result += ")";
+			 	}
+		} else {result += vn.toString();}
+
+
+		return result;
 	}
 
 }
