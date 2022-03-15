@@ -148,10 +148,11 @@ public class PCodeDump extends GhidraScript {
 				Iterator<Address> range = mem1.next().iterator();
 				while (range.hasNext()){
 					Address a = range.next();
-					file.write(a.getAddressSpace().getName() + "  ");
+					if(a.getAddressSpace().getName().equals("ram")){
 					file.write(a.toString() + " ");
 					byte b = currentProgram.getMemory().getByte(a);
 					file.write(Byte.toUnsignedInt(b) + "\n");
+				}
 				}
 				}
 
