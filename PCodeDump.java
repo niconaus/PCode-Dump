@@ -1,17 +1,19 @@
 //Dumps the pcode into a txt file.
 //@category PCode
 
-//my imports
 import java.io.File;
-import java.io.FileWriter;   // Import the FileWriter class
+import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Scanner;
+import java.io.InputStream;
 import ghidra.util.Msg;
 import java.util.ArrayList;
+import java.lang.Byte;
 import ghidra.program.model.address.*;
 import ghidra.program.model.pcode.*;
 import ghidra.program.model.lang.Register;
+import ghidra.program.model.mem.*;
 
-//old imports
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.HashMap;
@@ -25,27 +27,14 @@ import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.script.GhidraScript;
 import ghidra.framework.plugintool.PluginTool;
-import ghidra.program.model.address.Address;
-import ghidra.program.model.data.AbstractFloatDataType;
-import ghidra.program.model.data.AbstractIntegerDataType;
-import ghidra.program.model.data.Array;
-import ghidra.program.model.data.BooleanDataType;
-import ghidra.program.model.data.DataType;
-import ghidra.program.model.data.DataTypeComponent;
-import ghidra.program.model.data.Enum;
-import ghidra.program.model.data.FunctionDefinition;
-import ghidra.program.model.data.GenericCallingConvention;
-import ghidra.program.model.data.ParameterDefinition;
-import ghidra.program.model.data.Pointer;
-import ghidra.program.model.data.Structure;
-import ghidra.program.model.data.TypeDef;
-import ghidra.program.model.data.Union;
 import ghidra.program.model.listing.Function;
-import ghidra.program.model.symbol.Symbol;
-import ghidra.program.model.symbol.SymbolIterator;
-import ghidra.program.model.symbol.SymbolTable;
 
 public class PCodeDump extends GhidraScript {
+
+	// P-Code Dump Settings
+	// Print Registers using string identifiers
+	boolean registersAsString = false;
+	boolean normalizeDecompilation = false;
 
 	private Function func;
 	protected HighFunction high;
@@ -59,8 +48,8 @@ public class PCodeDump extends GhidraScript {
 		File f = askFile("Enter file name, including extension for P-Code dump", "OK");
 		try {
 			println("going to dump into file " + f);
-			if(f.createNewFile()){ println("File created!");} else {println("File exists already."); return;}
-			FileWriter file = new FileWriter(f);
+			if(f.createNewFile()){ println("File created!");} else {println("File exists already, contents will be overwritten.");}
+			FileWriter file = new FileWriter(f,false);
 
 			DecompileOptions options = new DecompileOptions();
 			DecompInterface ifc = new DecompInterface();
@@ -76,15 +65,27 @@ public class PCodeDump extends GhidraScript {
 				if (!ifc.openProgram(this.currentProgram)) {
 	    		throw new DecompileException("Decompiler", "Unable to initialize: " + ifc.getLastMessage());
 				}
-				ifc.setSimplificationStyle("normalize");
+				if (normalizeDecompilation) {ifc.setSimplificationStyle("normalize");}
 				DecompileResults res = ifc.decompileFunction(func, 30, null);
 				high = res.getHighFunction();
+
+				// In some cases, Ghidra is unable to perform disassembly or decompilation, and high will be null
+				// In those cases, we skip this function and move on to the next
+				if (high == null) {func = getFunctionAfter(func); continue;}
 
 				// Print function header information
 				file.write(func.getName() + "\n");
 
 				//iterate over the basic blocks in the function
 				ArrayList<PcodeBlockBasic> blocks = high.getBasicBlocks();
+
+				// test if function is external
+				boolean ext = func.isThunk();
+				if (ext) {
+					file.write(blocks.get(0).getStart().toString() + "\n");
+					file.write(" ---  EXTCALL " + func.getName()+ "\n");
+				}
+				else{
 
 				for (int i = 0; i < blocks.size();	i++) {
 					Address blockAddr = blocks.get(i).getStart();
@@ -114,19 +115,46 @@ public class PCodeDump extends GhidraScript {
 						// begin loop
 						for (int j = 0; j < inputs.length; j++) {
 							// print varnode
-  						file.write(printVarnode(op.getInput(j)));
+							//check if we are dealing with a conditional branch
+							if (opcode == 5 && j==0) {
+								// if so, we actually need the false out address
+									file.write("(ram, 0x" + blocks.get(i).getTrueOut().getStart().toString() + ", 1) , ");
+									file.write("(ram, 0x" + blocks.get(i).getFalseOut().getStart().toString() + ", 1)");
+								}
+  						else if (opcode == 60) {
+								// we are dealing with a multiequal. Try to get all addresses that point to this block
+								int incoming = blocks.get(i).getInSize(); // don't think we need this line
+								file.write(printVarnode(op.getInput(j)) + " , " + blocks.get(i).getIn(j).getStart().toString());
+
+							}
+							else {file.write(printVarnode(op.getInput(j)));}
 							// if next, print " , "
 							if (inputs.length > (j+1)) {file.write(" , ");}
 						}
 
 						file.write("\n");
-
 						// Done!
 					}
-				}
-
+			 }
+		 }
 				func = getFunctionAfter(func);
 			}
+
+			// keyword indicating that memory section starts
+			file.write("MEMORY\n");
+
+			Iterator<AddressRange> mem1 = currentProgram.getMemory().getAllInitializedAddressSet().iterator();
+			while(mem1.hasNext()){
+				Iterator<Address> range = mem1.next().iterator();
+				while (range.hasNext()){
+					Address a = range.next();
+					file.write(a.getAddressSpace().getName() + "  ");
+					file.write(a.toString() + " ");
+					byte b = currentProgram.getMemory().getByte(a);
+					file.write(Byte.toUnsignedInt(b) + "\n");
+				}
+				}
+
 
 			file.close();
 		} catch (IOException e) {
@@ -137,7 +165,7 @@ public class PCodeDump extends GhidraScript {
 	protected String printVarnode(Varnode vn) {
 		String result = "";
 
-		if(vn.isRegister()){
+		if(vn.isRegister() && registersAsString){
 			result += "(register, ";
 			Register reg = func.getProgram().getRegister(vn.getAddress(), vn.getSize());
 			 	if (reg != null) { // do we need this condition?
@@ -147,7 +175,6 @@ public class PCodeDump extends GhidraScript {
 						result += ")";
 			 	}
 		} else {result += vn.toString();}
-
 
 		return result;
 	}
