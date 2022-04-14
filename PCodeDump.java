@@ -35,6 +35,7 @@ public class PCodeDump extends GhidraScript {
 	// Print Registers using string identifiers
 	boolean registersAsString = false;
 	boolean normalizeDecompilation = false;
+	boolean fixCBranch = true;
 
 	private Function func;
 	protected HighFunction high;
@@ -116,7 +117,7 @@ public class PCodeDump extends GhidraScript {
 						for (int j = 0; j < inputs.length; j++) {
 							// print varnode
 							//check if we are dealing with a conditional branch
-							if (opcode == 5 && j==0) {
+							if (opcode == 5 && j==0 && fixCBranch) {
 								// if so, we actually need the false out address
 									file.write("(ram, 0x" + blocks.get(i).getTrueOut().getStart().toString() + ", 1) , ");
 									file.write("(ram, 0x" + blocks.get(i).getFalseOut().getStart().toString() + ", 1)");
