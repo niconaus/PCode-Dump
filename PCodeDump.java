@@ -74,6 +74,13 @@ public class PCodeDump extends GhidraScript {
 				// In those cases, we skip this function and move on to the next
 				if (high == null) {func = getFunctionAfter(func); continue;}
 
+				// test if function is external
+				boolean ext = func.isThunk();
+				if (ext) {
+					// If so, add "EXT_" to function name
+					file.write("EXT_");
+				}
+
 				// Print function header information
 				file.write(func.getName() + "\n");
 
@@ -81,7 +88,6 @@ public class PCodeDump extends GhidraScript {
 				ArrayList<PcodeBlockBasic> blocks = high.getBasicBlocks();
 
 				// test if function is external
-				boolean ext = func.isThunk();
 				if (ext) {
 					file.write(blocks.get(0).getStart().toString() + "\n");
 					file.write(" ---  EXTCALL " + func.getName()+ "\n");
@@ -119,8 +125,8 @@ public class PCodeDump extends GhidraScript {
 							//check if we are dealing with a conditional branch
 							if (opcode == 5 && j==0 && fixCBranch) {
 								// if so, we actually need the false out address
-									file.write("(ram, 0x" + blocks.get(i).getTrueOut().getStart().toString() + ", 1) , ");
-									file.write("(ram, 0x" + blocks.get(i).getFalseOut().getStart().toString() + ", 1)");
+									file.write(printAddressAsVarnode(blocks.get(i).getTrueOut().getStart())+" , ");//"(ram, 0x" + blocks.get(i).getTrueOut().getStart().toString() + ", 1) , ");
+									file.write(printAddressAsVarnode(blocks.get(i).getFalseOut().getStart()));
 								}
   						else if (opcode == 60) {
 								// we are dealing with a multiequal. Try to get all addresses that point to this block
@@ -136,7 +142,27 @@ public class PCodeDump extends GhidraScript {
 						file.write("\n");
 						// Done!
 					}
-			 }
+			 // At this point, we wanna check if fall though is consistent.
+			 // First, we determine if we will perform fall though (last instruction is not CBRANCH, BRANCH or BRANCHIND)
+			 Iterator<PcodeOp> instrs = blocks.get(i).getIterator();
+			 	int lastInstr = -1;
+				while (instrs.hasNext()) lastInstr = instrs.next().getOpcode();
+			 	if (lastInstr != 4 && lastInstr != 6 && lastInstr != 5) {
+					// This includes safety checks: does a next block exist? Is there a known exit path? Is there only one?
+					if (i+1 < blocks.size() && blocks.get(i).getOutSize() == 1) {
+			 			// If so, what address does the Ghidra API think we will jump to?
+			 			Address apiNext = blocks.get(i).getOut(0).getStart();
+			 			// And what is the address of the next block?
+						Address fallNext = blocks.get(i+1).getStart();
+			 			// Compare these two. If inconsistent, we need to insert a BRANCH to the address indicated by the API.
+						if (apiNext != fallNext) {
+							file.write(" ---  BRANCH* (ram, 0x" + apiNext + ", 1)\n");
+			 				// We also send a notification to the terminal, to mark that this has happened.
+							println("Fall through inconsistent." + apiNext.toString() + " " + fallNext.toString());
+		 }
+		 }
+		 }
+		 }
 		 }
 				func = getFunctionAfter(func);
 			}
@@ -181,4 +207,18 @@ public class PCodeDump extends GhidraScript {
 		return result;
 	}
 
+	protected String printAddressAsVarnode(Address a) {
+		String result = "(";
+
+		String pA = a.toString();
+		//checks to see if we are dealing with HARVARD architecture binary
+		if((pA.length() > 4) && (pA.substring(0,4).equals("CODE"))){
+			result += "CODE, 0x";
+			result += pA.substring(5,pA.length());
+		} else { result += "ram, 0x" + pA;}
+
+		result += ", 1)";
+		return result;
+
+		}
 }
