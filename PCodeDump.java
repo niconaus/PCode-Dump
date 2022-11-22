@@ -142,24 +142,18 @@ public class PCodeDump extends GhidraScript {
 						file.write("\n");
 						// Done!
 					}
-			 // At this point, we wanna check if fall though is consistent.
+			 // At this point, we wanna check if we need to insert an explicit fall through.
 			 // First, we determine if we will perform fall though (last instruction is not CBRANCH, BRANCH or BRANCHIND)
 			 Iterator<PcodeOp> instrs = blocks.get(i).getIterator();
 			 	int lastInstr = -1;
 				while (instrs.hasNext()) lastInstr = instrs.next().getOpcode();
 			 	if (lastInstr != 4 && lastInstr != 6 && lastInstr != 5) {
-					// This includes safety checks: does a next block exist? Is there a known exit path? Is there only one?
-					if (i+1 < blocks.size() && blocks.get(i).getOutSize() == 1) {
+					// This includes safety checks: Is there a known exit path? Is there only one?
+					if (blocks.get(i).getOutSize() == 1) {
 			 			// If so, what address does the Ghidra API think we will jump to?
 			 			Address apiNext = blocks.get(i).getOut(0).getStart();
-			 			// And what is the address of the next block?
-						Address fallNext = blocks.get(i+1).getStart();
-			 			// Compare these two. If inconsistent, we need to insert a BRANCH to the address indicated by the API.
-						if (apiNext != fallNext) {
-							file.write(" ---  BRANCH* (ram, 0x" + apiNext + ", 1)\n");
-			 				// We also send a notification to the terminal, to mark that this has happened.
-							println("Fall through inconsistent." + apiNext.toString() + " " + fallNext.toString());
-		 }
+							file.write(" ---  BRANCH (ram, 0x" + apiNext + ", 1)\n");
+		 
 		 }
 		 }
 		 }
