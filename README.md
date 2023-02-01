@@ -11,3 +11,5 @@ Data from the RAM address range will be dumped after that, preceded by a keyword
 This material is based upon work supported by the Defense Advanced Research Projects Agency (DARPA) and Naval Information Warfare Center Pacific (NIWC Pacific) under contract N6600121C4028 and Agreement No. HR.00112090028, and the US Office of Naval Research (ONR) under grant N00014-17-1-2297.
 
 Any opinions, findings and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of DARPA or NIWC Pacific, or ONR. 
+
+Special thanks to [KevOrr](https://github.com/KevOrr "KevOrr") for his feedback
