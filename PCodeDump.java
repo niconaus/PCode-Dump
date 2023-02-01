@@ -130,8 +130,7 @@ public class PCodeDump extends GhidraScript {
 								}
   						else if (opcode == 60) {
 								// we are dealing with a multiequal. Try to get all addresses that point to this block
-								int incoming = blocks.get(i).getInSize(); // don't think we need this line
-								file.write(printVarnode(op.getInput(j)) + " , " + blocks.get(i).getIn(j).getStart().toString());
+								file.write(printVarnode(op.getInput(j)) + " , "+ op.getInput(j).getPCAddress().toString());
 
 							}
 							else {file.write(printVarnode(op.getInput(j)));}
@@ -153,7 +152,7 @@ public class PCodeDump extends GhidraScript {
 			 			// If so, what address does the Ghidra API think we will jump to?
 			 			Address apiNext = blocks.get(i).getOut(0).getStart();
 							file.write(" ---  BRANCH (ram, 0x" + apiNext + ", 1)\n");
-		 
+
 		 }
 		 }
 		 }
