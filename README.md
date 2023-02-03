@@ -1,5 +1,5 @@
 # PCode-Dump
-This repo contains a simple Ghidra P-Code dumping script. 
+This repo contains a simple Ghidra High P-Code dumping script. 
 
 # Usage
 
